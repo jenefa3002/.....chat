@@ -19,6 +19,7 @@
       rel="stylesheet"
       type="text/css"
     />
+    <link href="{% static 'css/chat.css' %}" rel="stylesheet" />
     <link href="{% static 'css/sb-admin-2.min.css' %}" rel="stylesheet" />
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
@@ -26,883 +27,6 @@
     />
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-    <style>
-      @media (max-width: 768px) {
-        .header {
-          padding: 8px 10px;
-          font-size: 16px;
-        }
-
-        .logo {
-          width: 40px;
-          height: 40px;
-        }
-
-        /* Chat panel sizing */
-        .chat-panel {
-          width: 100%;
-          height: 70vh;
-          bottom: 0;
-          right: 0;
-          border-radius: 10px 10px 0 0;
-        }
-
-        .chat-content-panel {
-          width: 100%;
-          height: 70vh;
-          bottom: 0;
-          right: 0;
-          border-radius: 10px 10px 0 0;
-        }
-        .chat-container2 {
-          width: 100%;
-          height: 70vh;
-          max-height: 70vh;
-          margin: 0;
-        }
-        /* Chat button positioning */
-        .chat-button {
-          width: 60px;
-          height: 60px;
-          bottom: 20px;
-          right: 20px;
-        }
-
-        /* Message input adjustments */
-        .chat-input {
-          padding: 8px;
-        }
-
-        .message-input {
-          font-size: 14px;
-        }
-
-        /* Message bubbles */
-        .message-bubble {
-          max-width: 85%;
-          padding: 8px 12px;
-          font-size: 14px;
-        }
-
-        /* Avatar sizing */
-        .avatar {
-          width: 32px;
-          height: 32px;
-        }
-
-        /* User list items */
-        .chat-list li {
-          padding: 10px;
-        }
-
-        .chat-list img {
-          width: 30px;
-          height: 30px;
-        }
-
-        /* Screen sharing adjustments */
-        .screen-share-container {
-          height: auto;
-          max-height: 40vh;
-        }
-
-        .localVideo,
-        .remoteVideo {
-          max-height: 30vh;
-        }
-
-        /* Navigation menu */
-        .nav-menu {
-          position: fixed;
-          top: 60px;
-          left: 0;
-          width: 100%;
-          background: linear-gradient(135deg, #4e73df, #6cb2eb);
-          flex-direction: column;
-          padding: 10px 0;
-          display: none;
-        }
-
-        .nav-menu.active {
-          display: flex;
-        }
-
-        .nav-menu li {
-          margin: 5px 0;
-          text-align: center;
-        }
-
-        .menu-toggle {
-          display: block;
-        }
-      }
-
-      /* Very small devices (phones, 480px and down) */
-      @media (max-width: 480px) {
-        .chat-panel,
-        .chat-content-panel {
-          height: 80vh;
-        }
-
-        .message-bubble {
-          max-width: 90%;
-        }
-
-        .chat-button {
-          width: 50px;
-          height: 50px;
-          bottom: 15px;
-          right: 15px;
-        }
-      }
-      ::-webkit-scrollbar {
-        width: 6px;
-      }
-
-      ::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 10px;
-      }
-
-      ::-webkit-scrollbar-thumb {
-        background: linear-gradient(135deg, #87cefa, #b0e0e6);
-        border-radius: 10px;
-        transition: background 0.3s ease-in-out;
-      }
-
-      ::-webkit-scrollbar-thumb:hover {
-        background: linear-gradient(45deg, #3757c3, #c08ef0);
-      }
-      .connection-status {
-        position: absolute;
-        top: 5px;
-        right: 5px;
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-        background-color: gray;
-      }
-      .connection-status.connected {
-        background-color: #28a745;
-        animation: pulse 1.5s infinite;
-      }
-      .connection-status.connecting {
-        background-color: #ffc107;
-      }
-      .connection-status.disconnected {
-        background-color: #dc3545;
-      }
-      @keyframes pulse {
-        0% {
-          transform: scale(1);
-        }
-        50% {
-          transform: scale(1.2);
-        }
-        100% {
-          transform: scale(1);
-        }
-      }
-      .header {
-        position: fixed;
-        top: 0;
-        width: 100%;
-        display: flex;
-        justify-content: space-between;
-        background-color: #4e73df;
-        color: white;
-        padding: 10px;
-        font-size: 20px;
-        font-weight: bold;
-        z-index: 1000;
-        text-align: center;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-      }
-      .content {
-        margin-top: 70px;
-      }
-      body {
-        background-image: url("/static/img/bg.png");
-        background-size: cover;
-        background-repeat: no-repeat;
-        background-position: center;
-      }
-      .chat-button {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        background: white;
-        border: none;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-        cursor: pointer;
-        overflow-y: auto;
-        padding: 5px;
-        z-index: 1050;
-      }
-
-      .chat-button img {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-        filter: invert(10%);
-      }
-
-      .chat-panel {
-        font-family: Georgia, serif;
-        position: fixed;
-        bottom: 90px;
-        right: 20px;
-        width: 280px;
-        height: 400px;
-        background: white;
-        border-radius: 10px;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-        transition: all 0.3s ease-in-out;
-        z-index: 1040;
-        display: flex;
-        overflow: hidden;
-        flex-direction: column;
-        transform: translateY(20px);
-        opacity: 0;
-        visibility: hidden;
-      }
-      .chat-panel.active {
-        transform: translateY(0);
-        opacity: 1;
-        visibility: visible;
-      }
-      .chat-content-panel {
-        display: none;
-        position: fixed;
-        bottom: 90px;
-        right: 320px;
-        flex: 1;
-        font-size: 20px;
-        background: white;
-        height: 400px;
-        width: 300px;
-        box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
-        border-radius: 10px;
-        transition: all 0.3s ease-in-out;
-        overflow: hidden;
-        transform: translateY(20px);
-        opacity: 0;
-        visibility: hidden;
-        z-index: 1030;
-      }
-      .chat-content-panel.active {
-        display: flex;
-        flex-direction: column;
-        transform: translateY(0);
-        opacity: 1;
-        visibility: visible;
-      }
-      .container {
-        position: flex;
-      }
-      .chat-container2 {
-        position: flex;
-        width: 100%;
-        height: 300px;
-        max-height: 350px;
-        margin: 5;
-        flex-grow: 1;
-        background: linear-gradient(to bottom, #f8f9fc, #e3e6f0);
-        border-radius: 10px;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-        display: flex;
-        overflow-y: auto;
-        flex-direction: column;
-      }
-
-      .screen-share-container {
-        display: none;
-        position: flex;
-        flex-direction: column;
-        gap: 10px;
-        border: 5px;
-        margin-top: 5px;
-        padding: 10px;
-        background: #f8f9fc;
-        border-radius: 10px;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-        width: 100%;
-        height: 10px;
-      }
-
-      .localVideo,
-      .remoteVideo {
-        width: 100%;
-        height: auto;
-        border-radius: 5px;
-        background: #000;
-        object-fit: cover;
-        display: none;
-      }
-
-      .localVideo.active,
-      .remoteVideo.active {
-        display: block;
-      }
-      .chat-header {
-        font-family: Georgia, serif;
-        background-color: #4e73df;
-        display: flex;
-        justify-content: space-between;
-        color: white;
-        padding: 10px;
-        align-items: center;
-        font-weight: bold;
-        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
-      }
-
-      .chat-header button {
-        background: none;
-        border: none;
-        color: white;
-        font-family: Georgia, serif;
-        font-size: 20px;
-        cursor: pointer;
-        transition: color 0.3s ease;
-      }
-
-      .chat-header button:hover {
-        color: #ffcc00;
-      }
-      .chat-list {
-        list-style: none;
-        font-family: Georgia, serif;
-        padding: 5px;
-        margin: 0;
-        flex-grow: 1;
-        overflow-y: auto;
-        max-height: calc(100% - 50px);
-      }
-      .chat-list li {
-        padding: 4px;
-        margin-bottom: 2px;
-        border-radius: 5px;
-        background: #f8f9fc;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        cursor: pointer;
-        transition: background 0.2s;
-      }
-      .chat-list li:hover {
-        background: #e2e6ea;
-      }
-      .chat-list img {
-        width: 35px;
-        height: 35px;
-        margin-right: 10px;
-        border-radius: 50%;
-      }
-      .status-badge {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        margin-left: 10px;
-      }
-      .online {
-        background-color: #28a745;
-      }
-      .offline {
-        background-color: #6c757d;
-      }
-      .notification-badge {
-        font-size: 8px;
-        padding: 5px 10px;
-        border-radius: 10px;
-        background-color: red;
-        color: white;
-        font-weight: bold;
-      }
-
-      @keyframes pulse {
-        0% {
-          transform: scale(0.9);
-          opacity: 0.7;
-        }
-        50% {
-          transform: scale(1.1);
-          opacity: 1;
-        }
-        100% {
-          transform: scale(0.9);
-          opacity: 0.7;
-        }
-      }
-
-      .chat-notification {
-        position: absolute;
-        top: -5px;
-        right: 2px;
-        background-color: red;
-        color: white;
-        font-size: 12px;
-        width: 20px;
-        height: 20px;
-        text-align: center;
-        line-height: 20px;
-        border-radius: 50%;
-        display: none;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        transition: transform 0.3s ease, background-color 0.3s ease;
-        animation: pulse 1.5s infinite ease-in-out; /* Smoother animation */
-        overflow: hidden;
-      }
-      .messages {
-        flex: 1;
-        padding: 10px;
-        overflow-y: auto;
-        max-height: 500px;
-        word-wrap: break-word;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        background: linear-gradient(135deg, #ffffff, #f0f0f0);
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-      .messages::-webkit-scrollbar {
-        width: 8px;
-        background-color: #ddd;
-      }
-      .chat-panel::-webkit-scrollbar-thumb {
-        background-color: #aaa;
-        border-radius: 4px;
-      }
-      .messages::-webkit-scrollbar-thumb {
-        background-color: #aaa;
-        border-radius: 4px;
-      }
-      .message-container {
-        display: flex;
-        align-items: flex-end;
-        gap: 10px;
-      }
-      .message-container.me {
-        justify-content: flex-end;
-      }
-      .message-container.other {
-        justify-content: flex-start;
-      }
-      .avatar {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background-color: #ccc;
-        flex-shrink: 0;
-      }
-      .message-bubble {
-        max-width: 75%;
-        padding: 10px 14px;
-        border-radius: 15px;
-        font-family: Georgia, serif;
-        font-size: 15px;
-        position: relative;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-        transition: transform 0.2s ease-in-out;
-      }
-      .message-container.me .message-bubble {
-        background: linear-gradient(to right, #4e73df, #1e40af);
-        color: white;
-        text-align: right;
-        border-bottom-right-radius: 5px;
-      }
-      .message-container.other .message-bubble {
-        background: linear-gradient(to right, #8a2be2, #5b21b6);
-        color: white;
-        text-align: left;
-        border-bottom-left-radius: 5px;
-      }
-      .message-timestamp {
-        font-size: 0.6rem;
-        color: gray;
-        margin-top: 5px;
-        text-align: right;
-      }
-      @keyframes messageAppear {
-        from {
-          opacity: 0;
-          transform: translateY(10px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      .message-bubble {
-        animation: messageAppear 0.1s ease-in-out;
-      }
-      .username {
-        font-size: 0.6rem;
-        font-family: Georgia, serif;
-        color: black;
-        font-style: Italic;
-      }
-      .status {
-        font-size: 0.6rem;
-        font-style: Italic;
-      }
-      .unread-badge {
-        font-size: 0.6rem;
-        font-style: Italic;
-        font-color: #ee4b2b;
-      }
-      .message-timestamp {
-        font-size: 0.5rem;
-        color: white;
-        margin-top: 5px;
-        text-align: right;
-      }
-      .chat-input {
-        display: flex;
-        align-items: center;
-        padding: 5px;
-        background-color: #fff;
-        border-radius: 5px;
-        border-top: 1px solid #ccc;
-        gap: 5px;
-      }
-      .chat-input textarea {
-        flex: 1;
-        resize: none;
-        flex: 1;
-        padding: 8px;
-        border: 1px solid #ccc;
-        border-radius: 5px;
-        outline: none;
-      }
-      .chat-input button {
-        background: #4e73df;
-        color: white;
-        border: none;
-        padding: 8px 12px;
-        margin-left: 5px;
-        border-radius: 5px;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-      }
-      .chat-input button:hover {
-        background-color: #004d36;
-      }
-      .input-container {
-        display: flex;
-        padding: 5px;
-        background-color: linear-gradient(135deg, #6cb2eb, #4e73df);
-        border-bottom-left-radius: 10px;
-        border-bottom-right-radius: 10px;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-      }
-      .message-input {
-        width: 100%;
-        padding: 5px;
-        background-color: linear-gradient(135deg, #6cb2eb, #4e73df);
-        border: none;
-        border-radius: 5px;
-        font-size: 16px;
-        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
-        margin-right: 10px;
-      }
-      .send-btn {
-        width: 30px;
-        height: 30px;
-        background: linear-gradient(135deg, #6cb2eb, #4e73df);
-        border: none;
-        border-radius: 50%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        cursor: pointer;
-        transition: background 0.3s;
-      }
-
-      .send-btn:hover {
-        background: linear-gradient(
-          135deg,
-          #4e73df,
-          #6cb2eb
-        ); /* Inverted lighter gradient on hover */
-      }
-
-      .send-btn img {
-        width: 20px;
-        height: 20px;
-      }
-
-      .shareBtn {
-        width: 30px;
-        height: 30px;
-        background: linear-gradient(135deg, #6cb2eb, #4e73df);
-        border: none;
-        border-radius: 50%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        cursor: pointer;
-        transition: background 0.3s;
-      }
-
-      .shareBtn:hover {
-        background: linear-gradient(135deg, #4e73df, #6cb2eb);
-      }
-
-      .shareBtn img {
-        width: 20px;
-        height: 20px;
-      }
-      #avatar-pic {
-        width: 50px;
-        height: 50px;
-        background-color: #e6e6fa;
-        border: none;
-        border-radius: 50%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        cursor: pointer;
-        transition: background-color 0.3s;
-      }
-
-      #avatar-pic:hover {
-        background-color: #d8bfd8;
-      }
-      #avatar-pic img {
-        width: 25px;
-        height: 25px;
-      }
-      .options {
-        display: none;
-        position: absolute;
-        background: #fff;
-        border: 1px solid #ddd;
-        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-        z-index: 100;
-      }
-      .options button {
-        display: block;
-        width: 100%;
-        padding: 8px;
-        border: none;
-        background: #fff;
-        cursor: pointer;
-      }
-      .options button:hover {
-        background: #f0f0f0;
-      }
-      .user-status {
-        font-size: 20px;
-        margin-left: 5px;
-      }
-      @keyframes badge-pulse {
-        0% {
-          transform: scale(1);
-          background-color: #dc3545;
-        }
-        50% {
-          transform: scale(1.2);
-          background-color: #ff5b5b;
-        }
-        100% {
-          transform: scale(1);
-          background-color: #dc3545;
-        }
-      }
-
-      @keyframes badge-fadein {
-        0% {
-          opacity: 0;
-          transform: scale(0.5);
-        }
-        100% {
-          opacity: 1;
-          transform: scale(1);
-        }
-      }
-
-      .notification-badge {
-        display: inline-block;
-        padding: 5px;
-        font-size: 14px;
-        font-weight: bold;
-        color: white;
-        border-radius: 50%;
-        background-color: #dc3545;
-        animation: badge-pulse 2s infinite, badge-fadein 0.5s ease-out;
-      }
-
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        font-family: "Arial", sans-serif;
-      }
-
-      /* Background Effects */
-      .background-effects {
-        background-image: url("/static/img/bg.png");
-        background-size: cover;
-        background-repeat: no-repeat;
-        background-position: center;
-      }
-
-      /* Header */
-      .header-tag {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        color: black;
-        background: linear-gradient(135deg, #f0f0f0, #d1d1d1);
-        padding: 15px 30px;
-        position: sticky;
-        top: 0;
-        z-index: 1000;
-      }
-
-      .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background: linear-gradient(135deg, #4e73df, #6cb2eb);
-        color: black;
-        padding: 15px 30px;
-        position: sticky;
-        top: 0;
-        z-index: 1000;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        transition: background 0.3s ease-in-out;
-      }
-
-      /* Logo */
-      .logo {
-        font-size: 24px;
-        font-weight: bold;
-        letter-spacing: 1px;
-        width: 50px;
-        height: 50px;
-        background: linear-gradient(135deg, #6cb2eb, #4e73df);
-        border-radius: 50%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        cursor: pointer;
-        transition: transform 0.3s ease-in-out, background 0.3s ease-in-out;
-        overflow: hidden;
-      }
-
-      .logo:hover {
-        background: linear-gradient(135deg, #4e73df, #6cb2eb);
-        transform: scale(1.1);
-      }
-
-      .logo img {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-        filter: invert(0%);
-      }
-
-      /* Navigation */
-      .nav-menu {
-        display: flex;
-        list-style: none;
-      }
-
-      .nav-menu li {
-        margin: 0 15px;
-      }
-
-      .nav-menu li a {
-        text-decoration: none;
-        color: white;
-        font-size: 16px;
-        transition: color 0.3s ease-in-out;
-      }
-
-      .nav-menu li a:hover {
-        text-decoration: underline;
-        color: #f0f0f0;
-      }
-
-      /* User Info */
-      .user-info {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-      }
-
-      .profile-pic {
-        width: 35px;
-        height: 35px;
-        border-radius: 50%;
-        object-fit: cover;
-        background: linear-gradient(135deg, #4e73df, #6cb2eb);
-        border: 2px solid white;
-      }
-
-      /* Logout Button */
-      .logout-button {
-        width: 50px;
-        height: 50px;
-        background: linear-gradient(135deg, #f0f0f0, #d1d1d1);
-        border: none;
-        border-radius: 50%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        cursor: pointer;
-        transition: background 0.3s ease-in-out, transform 0.3s ease-in-out;
-      }
-
-      .logout-button:hover {
-        background: linear-gradient(135deg, #d1d1d1, #a0a0a0);
-        transform: scale(1.1);
-      }
-
-      .logout-button img {
-        width: 30px;
-        height: 30px;
-      }
-
-      /* Mobile Navigation */
-      .menu-toggle {
-        display: none;
-        font-size: 24px;
-        cursor: pointer;
-      }
-
-      @media (max-width: 768px) {
-        .nav-menu {
-          display: none;
-          flex-direction: column;
-          background: linear-gradient(135deg, #f0f0f0, #d1d1d1);
-          position: absolute;
-          top: 60px;
-          left: 0;
-          width: 100%;
-          padding: 10px;
-          border-top: 2px solid black;
-        }
-
-        .nav-menu.active {
-          display: flex;
-        }
-
-        .menu-toggle {
-          display: block;
-        }
-      }
-    </style>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
@@ -981,300 +105,444 @@
     </div>
     {% include 'chatbot.html' %}
     <script>
-      let peerConnection = null;
-      let localStream = null;
-      let makingOffer = false;
-      let ignoreOffer = false;
-      let polite = false;
-      const shareSockets = {};
-      const rtcConfig = {
-        iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" },
-          { urls: "stun:stun2.l.google.com:19302" },
-        ],
-        iceTransportPolicy: "all",
-        iceCandidatePoolSize: 10,
-      };
-      function initScreenSharing(chatPanelId, sender, recipient) {
-        cleanupScreenSharing(chatPanelId);
-        shareSockets[chatPanelId] = new WebSocket(
-          window.location.protocol === "https:"
-            ? `wss://${window.location.host}/ws/screenshare/${sender}/${recipient}/`
-            : `ws://${window.location.host}/ws/screenshare/${sender}/${recipient}/`
-        );
-        const localVideo = document.getElementById(`localVideo-${chatPanelId}`);
-        const remoteVideo = document.getElementById(
-          `remoteVideo-${chatPanelId}`
-        );
-        const connectionStatus = document.getElementById(
-          `connection-status-${chatPanelId}`
-        );
-        shareSockets[chatPanelId].onopen = () => {
-          console.log(`Screen share WebSocket opened for ${chatPanelId}`);
-          updateConnectionStatus(chatPanelId, "connecting");
-        };
-        shareSockets[chatPanelId].onerror = (error) => {
-          console.error(
-            `Screen share WebSocket error for ${chatPanelId}:`,
-            error
-          );
-          updateConnectionStatus(chatPanelId, "disconnected");
-        };
-        shareSockets[chatPanelId].onclose = () => {
-          console.log(`Screen share WebSocket closed for ${chatPanelId}`);
-          updateConnectionStatus(chatPanelId, "disconnected");
-        };
-        shareSockets[chatPanelId].onmessage = async (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            console.log(`Message received for ${chatPanelId}:`, data.type);
-            if (!peerConnection || peerConnection.signalingState === "closed") {
-              console.warn("PeerConnection not ready, ignoring message");
-              return;
-            }
-            switch (data.type) {
-              case "offer":
-                await handleOffer(chatPanelId, data.offer);
-                break;
+      // Screen Sharing Module - Complete Implementation
+class ScreenSharing {
+  constructor() {
+    this.peerConnection = null;
+    this.localStream = null;
+    this.makingOffer = false;
+    this.ignoreOffer = false;
+    this.polite = false;
+    this.shareSockets = {};
+    this.messageQueue = {};
+    this.rtcConfig = {
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" }
+      ],
+      iceTransportPolicy: "all",
+      iceCandidatePoolSize: 10
+    };
+  }
+  async initScreenSharing(chatPanelId, sender, recipient) {
+    try {
+      console.log(`Initializing screen sharing for ${chatPanelId}`);
+      this.cleanupScreenSharing(chatPanelId);
+      this.shareSockets[chatPanelId] = new WebSocket(
+        window.location.protocol === "https:"
+          ? `wss://${window.location.host}/ws/screenshare/${sender}/${recipient}/`
+          : `ws://${window.location.host}/ws/screenshare/${sender}/${recipient}/`
+      );
 
-              case "answer":
-                await handleAnswer(data.answer);
-                break;
+      // Setup WebSocket handlers
+      this.setupSocketHandlers(chatPanelId);
 
-              case "candidate":
-                await handleCandidate(data.candidate);
-                break;
+      // Create UI elements if they don't exist
+      this.createVideoElements(chatPanelId);
 
-              case "stop_screen_share":
-                stopScreenShare(chatPanelId);
-                break;
+      // Setup event listeners
+      this.setupEventListeners(chatPanelId, sender, recipient);
 
-              default:
-                console.warn("Unknown message type:", data.type);
-            }
-          } catch (error) {
-            console.error(`Error handling message for ${chatPanelId}:`, error);
-          }
-        };
-        $(`#shareBtn-${chatPanelId}`)
-          .off("click")
-          .on("click", async () => {
-            if (localStream) {
-              await stopScreenShare(chatPanelId);
-            } else {
-              await startScreenShare(chatPanelId, sender, recipient);
-            }
-          });
-        $(document).on(
-          "click",
-          `.close-chat-content[data-id="${chatPanelId}"]`,
-          () => {
-            cleanupScreenSharing(chatPanelId);
-          }
-        );
-      }
-      async function startScreenShare(chatPanelId, sender, recipient) {
-        try {
-          polite = true;
-          $(`#screen-share-container-${chatPanelId}`).show();
-          updateConnectionStatus(chatPanelId, "connecting");
-          localStream = await navigator.mediaDevices.getDisplayMedia({
-            video: {
-              displaySurface: "monitor",
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-            },
-            audio: false,
-          });
-          const localVideo = document.getElementById(
-            `localVideo-${chatPanelId}`
-          );
-          localVideo.srcObject = localStream;
-          $(`#localVideo-${chatPanelId}`).addClass("active").show();
-          await createPeerConnection(chatPanelId);
-          localStream.getTracks().forEach((track) => {
-            peerConnection.addTrack(track, localStream);
-          });
-          localStream.getVideoTracks()[0].onended = () => {
-            console.log("User stopped screen sharing");
-            stopScreenShare(chatPanelId);
-          };
-        } catch (error) {
-          console.error("Screen sharing error:", error);
-          stopScreenShare(chatPanelId);
+      console.log(`Screen sharing initialized for ${chatPanelId}`);
+    } catch (error) {
+      console.error(`Error initializing screen sharing: ${error}`);
+      this.showError(chatPanelId, "Failed to initialize screen sharing");
+    }
+  }
 
-          if (error.name !== "NotAllowedError") {
-            alert(`Could not start screen sharing: ${error.message}`);
-          }
-        }
-      }
-      async function createPeerConnection(chatPanelId) {
-        try {
-          if (peerConnection) {
-            peerConnection.close();
-          }
-          peerConnection = new RTCPeerConnection(rtcConfig);
-          updateConnectionStatus(chatPanelId, "connecting");
-          peerConnection.onicecandidate = ({ candidate }) => {
-            if (candidate) {
-              shareSockets[chatPanelId].send(
-                JSON.stringify({
-                  type: "candidate",
-                  candidate: candidate,
-                })
-              );
-            }
-          };
+  // Setup WebSocket event handlers
+  setupSocketHandlers(chatPanelId) {
+    const socket = this.shareSockets[chatPanelId];
 
-          peerConnection.onnegotiationneeded = async () => {
-            try {
-              makingOffer = true;
-              await peerConnection.setLocalDescription();
-              shareSockets[chatPanelId].send(
-                JSON.stringify({
-                  type: "offer",
-                  offer: peerConnection.localDescription,
-                })
-              );
-            } catch (err) {
-              console.error("Error during negotiation:", err);
-            } finally {
-              makingOffer = false;
-            }
-          };
+    socket.onopen = () => {
+      console.log(`Screen share WebSocket opened for ${chatPanelId}`);
+      this.updateConnectionStatus(chatPanelId, "connecting");
+    };
 
-          peerConnection.oniceconnectionstatechange = () => {
-            console.log(
-              "ICE connection state:",
-              peerConnection.iceConnectionState
-            );
-            if (peerConnection.iceConnectionState === "failed") {
-              peerConnection.restartIce();
-            }
-            updateConnectionStatus(
-              chatPanelId,
-              peerConnection.iceConnectionState
-            );
-          };
+    socket.onerror = (error) => {
+      console.error(`WebSocket error for ${chatPanelId}:`, error);
+      this.updateConnectionStatus(chatPanelId, "disconnected");
+    };
 
-          peerConnection.ontrack = (event) => {
-            if (event.streams && event.streams.length > 0) {
-              const remoteVideo = document.getElementById(
-                `remoteVideo-${chatPanelId}`
-              );
-              remoteVideo.srcObject = event.streams[0];
-              $(`#remoteVideo-${chatPanelId}`).addClass("active").show();
-              updateConnectionStatus(chatPanelId, "connected");
-            }
-          };
+    socket.onclose = () => {
+      console.log(`WebSocket closed for ${chatPanelId}`);
+      this.updateConnectionStatus(chatPanelId, "disconnected");
+      this.cleanupSocket(chatPanelId);
+    };
 
-          return true;
-        } catch (error) {
-          console.error("Error creating peer connection:", error);
-          updateConnectionStatus(chatPanelId, "disconnected");
-          return false;
-        }
-      }
+    socket.onmessage = async (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log(`Received ${data.type} for ${chatPanelId}`, data);
 
-      async function handleOffer(chatPanelId, offer) {
-        const offerCollision =
-          makingOffer || peerConnection.signalingState !== "stable";
-
-        ignoreOffer = !polite && offerCollision;
-        if (ignoreOffer) {
-          console.log("Ignoring offer due to collision");
+        // Validate message type
+        if (!this.isValidMessageType(data.type)) {
+          console.warn(`Invalid message type: ${data.type}`);
           return;
         }
 
-        await peerConnection.setRemoteDescription(offer);
-        if (offer.type === "offer") {
-          await peerConnection.setLocalDescription();
-          shareSockets[chatPanelId].send(
-            JSON.stringify({
-              type: "answer",
-              answer: peerConnection.localDescription,
-            })
-          );
+        // Queue message if PeerConnection isn't ready
+        if (!this.isPeerConnectionReady()) {
+          console.log(`PeerConnection not ready, queuing ${data.type}`);
+          this.queueMessage(chatPanelId, data);
+          return;
         }
-      }
-      async function handleAnswer(answer) {
-        await peerConnection.setRemoteDescription(answer);
-      }
-      async function handleCandidate(candidate) {
-        try {
-          if (candidate) {
-            await peerConnection.addIceCandidate(candidate);
-          }
-        } catch (err) {
-          if (!ignoreOffer) {
-            console.error("Failed to add ICE candidate:", err);
-          }
-        }
-      }
-      async function stopScreenShare(chatPanelId) {
-        if (localStream) {
-          localStream.getTracks().forEach((track) => track.stop());
-          localStream = null;
-        }
-        if (peerConnection) {
-          peerConnection.close();
-          peerConnection = null;
-        }
-        const localVideo = document.getElementById(`localVideo-${chatPanelId}`);
-        const remoteVideo = document.getElementById(
-          `remoteVideo-${chatPanelId}`
-        );
-        if (localVideo) {
-          localVideo.srcObject = null;
-          $(`#localVideo-${chatPanelId}`).removeClass("active").hide();
-        }
-        if (remoteVideo) {
-          remoteVideo.srcObject = null;
-          $(`#remoteVideo-${chatPanelId}`).removeClass("active").hide();
-        }
-        $(`#screen-share-container-${chatPanelId}`).hide();
-        updateConnectionStatus(chatPanelId, "disconnected");
-        if (shareSockets[chatPanelId]) {
-          shareSockets[chatPanelId].send(
-            JSON.stringify({
-              type: "stop_screen_share",
-            })
-          );
-        }
-      }
-      function cleanupScreenSharing(chatPanelId) {
-        stopScreenShare(chatPanelId);
-        if (shareSockets[chatPanelId]) {
-          shareSockets[chatPanelId].close();
-          delete shareSockets[chatPanelId];
-        }
-        makingOffer = false;
-        ignoreOffer = false;
-      }
-      function updateConnectionStatus(chatPanelId, status) {
-        const element = document.getElementById(
-          `connection-status-${chatPanelId}`
-        );
-        if (element) {
-          element.className = "connection-status";
 
-          switch (status) {
-            case "connected":
-            case "completed":
-              element.classList.add("connected");
-              break;
+        // Process the message
+        await this.processSignalingMessage(chatPanelId, data);
+      } catch (error) {
+        console.error(`Error handling message for ${chatPanelId}:`, error);
+      }
+    };
+  }
 
-            case "connecting":
-            case "checking":
-              element.classList.add("connecting");
-              break;
+  // Create necessary video elements
+  createVideoElements(chatPanelId) {
+    const container = document.getElementById(`screen-share-container-${chatPanelId}`);
+    if (!container) {
+      console.error(`Container not found for ${chatPanelId}`);
+      return;
+    }
 
-            default:
-              element.classList.add("disconnected");
-          }
+    if (!document.getElementById(`localVideo-${chatPanelId}`)) {
+      const localVideo = document.createElement('video');
+      localVideo.id = `localVideo-${chatPanelId}`;
+      localVideo.className = 'localVideo';
+      localVideo.autoplay = true;
+      localVideo.muted = true;
+      container.appendChild(localVideo);
+    }
+
+    if (!document.getElementById(`remoteVideo-${chatPanelId}`)) {
+      const remoteVideo = document.createElement('video');
+      remoteVideo.id = `remoteVideo-${chatPanelId}`;
+      remoteVideo.className = 'remoteVideo';
+      remoteVideo.autoplay = true;
+      container.appendChild(remoteVideo);
+    }
+
+    if (!document.getElementById(`connection-status-${chatPanelId}`)) {
+      const statusIndicator = document.createElement('div');
+      statusIndicator.id = `connection-status-${chatPanelId}`;
+      statusIndicator.className = 'connection-status';
+      container.appendChild(statusIndicator);
+    }
+  }
+
+  // Setup UI event listeners
+  setupEventListeners(chatPanelId, sender, recipient) {
+    // Share button click handler
+    $(`#shareBtn-${chatPanelId}`).off('click').on('click', async () => {
+      if (this.localStream) {
+        await this.stopScreenShare(chatPanelId);
+      } else {
+        await this.startScreenShare(chatPanelId, sender, recipient);
+      }
+    });
+
+    // Panel close handler
+    $(document).on(`click`, `.close-chat-content[data-id="${chatPanelId}"]`, () => {
+      this.cleanupScreenSharing(chatPanelId);
+    });
+  }
+
+  // Start screen sharing
+  async startScreenShare(chatPanelId, sender, recipient) {
+    try {
+      console.log(`Starting screen share for ${chatPanelId}`);
+
+      // Reset state
+      this.polite = true;
+      this.makingOffer = false;
+      this.ignoreOffer = false;
+      $(`#screen-share-container-${chatPanelId}`).show();
+      this.updateConnectionStatus(chatPanelId, "connecting");
+      await this.createPeerConnection(chatPanelId);
+      this.localStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          displaySurface: "monitor",
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        },
+        audio: false
+      });
+      const localVideo = document.getElementById(`localVideo-${chatPanelId}`);
+      localVideo.srcObject = this.localStream;
+      localVideo.classList.add("active");
+      this.localStream.getTracks().forEach(track => {
+        this.peerConnection.addTrack(track, this.localStream);
+      });
+      this.localStream.getVideoTracks()[0].onended = () => {
+        console.log("User stopped screen sharing");
+        this.stopScreenShare(chatPanelId);
+      };
+      console.log(`Screen sharing started for ${chatPanelId}`);
+    } catch (error) {
+      console.error(`Error starting screen share: ${error}`);
+      this.stopScreenShare(chatPanelId);
+      if (error.name !== "NotAllowedError") {
+        this.showError(chatPanelId, `Could not start screen sharing: ${error.message}`);
+      }
+    }
+  }
+  async createPeerConnection(chatPanelId) {
+    try {
+      console.log(`Creating PeerConnection for ${chatPanelId}`);
+      if (this.peerConnection) {
+        this.peerConnection.close();
+      }
+      this.peerConnection = new RTCPeerConnection(this.rtcConfig);
+      this.updateConnectionStatus(chatPanelId, "connecting");
+      this.setupPeerConnectionHandlers(chatPanelId);
+
+      console.log(`PeerConnection created for ${chatPanelId}`);
+      return true;
+    } catch (error) {
+      console.error(`Error creating PeerConnection: ${error}`);
+      this.updateConnectionStatus(chatPanelId, "disconnected");
+      return false;
+    }
+  }
+  setupPeerConnectionHandlers(chatPanelId) {
+    this.peerConnection.onicecandidate = ({ candidate }) => {
+      if (candidate && this.shareSockets[chatPanelId]?.readyState === WebSocket.OPEN) {
+        console.log(`Sending ICE candidate for ${chatPanelId}`);
+        this.shareSockets[chatPanelId].send(JSON.stringify({
+          type: "candidate",
+          candidate: candidate
+        }));
+      }
+    };
+    this.peerConnection.onnegotiationneeded = async () => {
+      try {
+        console.log(`Negotiation needed for ${chatPanelId}`);
+        this.makingOffer = true;
+        await this.peerConnection.setLocalDescription();
+        if (this.shareSockets[chatPanelId]?.readyState === WebSocket.OPEN) {
+          console.log(`Sending offer for ${chatPanelId}`);
+          this.shareSockets[chatPanelId].send(JSON.stringify({
+            type: "offer",
+            offer: this.peerConnection.localDescription
+          }));
+        }
+      } catch (err) {
+        console.error(`Negotiation error for ${chatPanelId}:`, err);
+      } finally {
+        this.makingOffer = false;
+      }
+    };
+    this.peerConnection.oniceconnectionstatechange = () => {
+      const state = this.peerConnection.iceConnectionState;
+      console.log(`ICE connection state changed to ${state} for ${chatPanelId}`);
+      this.updateConnectionStatus(chatPanelId, state);
+      if (state === "failed") {
+        console.log(`Restarting ICE for ${chatPanelId}`);
+        this.peerConnection.restartIce();
+      }
+    };
+    this.peerConnection.ontrack = (event) => {
+      if (event.streams && event.streams.length > 0) {
+        console.log(`Received remote track for ${chatPanelId}`);
+        const remoteVideo = document.getElementById(`remoteVideo-${chatPanelId}`);
+        remoteVideo.srcObject = event.streams[0];
+        remoteVideo.classList.add("active");
+        this.updateConnectionStatus(chatPanelId, "connected");
+      }
+    };
+    this.peerConnection.onicegatheringstatechange = () => {
+      console.log(`ICE gathering state: ${this.peerConnection.iceGatheringState}`);
+    };
+    this.peerConnection.onsignalingstatechange = () => {
+      console.log(`Signaling state: ${this.peerConnection.signalingState}`);
+    };
+  }
+  async processSignalingMessage(chatPanelId, data) {
+    try {
+      switch (data.type) {
+        case "offer":
+          await this.handleOffer(chatPanelId, data.offer);
+          break;
+        case "answer":
+          await this.handleAnswer(data.answer);
+          break;
+        case "candidate":
+          await this.handleCandidate(data.candidate);
+          break;
+        case "stop_screen_share":
+          await this.stopScreenShare(chatPanelId);
+          break;
+        default:
+          console.warn(`Unknown message type: ${data.type}`);
+      }
+    } catch (error) {
+      console.error(`Error processing ${data.type}:`, error);
+    }
+  }
+  async handleOffer(chatPanelId, offer) {
+    try {
+      console.log(`Processing offer for ${chatPanelId}`);
+
+      const offerCollision = this.makingOffer ||
+                           this.peerConnection.signalingState !== "stable";
+
+      this.ignoreOffer = !this.polite && offerCollision;
+      if (this.ignoreOffer) {
+        console.log(`Ignoring offer for ${chatPanelId} due to collision`);
+        return;
+      }
+      await this.peerConnection.setRemoteDescription(offer);
+      if (offer.type === "offer") {
+        await this.peerConnection.setLocalDescription();
+        if (this.shareSockets[chatPanelId]?.readyState === WebSocket.OPEN) {
+          console.log(`Sending answer for ${chatPanelId}`);
+          this.shareSockets[chatPanelId].send(JSON.stringify({
+            type: "answer",
+            answer: this.peerConnection.localDescription
+          }));
         }
       }
+      this.processMessageQueue(chatPanelId);
+    } catch (error) {
+      console.error(`Error handling offer: ${error}`);
+      throw error;
+    }
+  }
+  async handleAnswer(answer) {
+    try {
+      console.log("Processing answer");
+      if (!this.peerConnection ||
+          this.peerConnection.signalingState === "closed" ||
+          this.peerConnection.signalingState !== "have-local-offer") {
+        console.warn("PeerConnection not ready for answer. Current state: ", this.peerConnection.signalingState);
+        return;
+      }
+      console.log("Current signaling state", this.peerConnection.signalingState);
+      await this.peerConnection.setRemoteDescription(answer);
+      console.log("Answer processed successfully");
+    } catch (error) {
+      console.error("Error handling answer:", error);
+      throw error;
+    }
+  }
+  async handleCandidate(candidate) {
+    try {
+      console.log("Processing ICE candidate");
+
+      if (!this.peerConnection ||
+          this.peerConnection.signalingState === "closed") {
+        console.warn("PeerConnection not ready for candidate");
+        return;
+      }
+
+      if (candidate) {
+        await this.peerConnection.addIceCandidate(candidate);
+        console.log("ICE candidate added successfully");
+      }
+    } catch (err) {
+      if (!this.ignoreOffer) {
+        console.error("Failed to add ICE candidate:", err);
+      }
+    }
+  }
+  async stopScreenShare(chatPanelId) {
+    try {
+      console.log(`Stopping screen share for ${chatPanelId}`);
+      if (this.localStream) {
+        this.localStream.getTracks().forEach(track => track.stop());
+        this.localStream = null;
+      }
+      const localVideo = document.getElementById(`localVideo-${chatPanelId}`);
+      const remoteVideo = document.getElementById(`remoteVideo-${chatPanelId}`);
+      if (localVideo) {
+        localVideo.srcObject = null;
+        localVideo.classList.remove("active");
+      }
+      if (remoteVideo) {
+        remoteVideo.srcObject = null;
+        remoteVideo.classList.remove("active");
+      }
+      if (this.peerConnection) {
+        this.peerConnection.close();
+        this.peerConnection = null;
+      }
+      $(`#screen-share-container-${chatPanelId}`).hide();
+      this.updateConnectionStatus(chatPanelId, "disconnected");
+      if (this.shareSockets[chatPanelId]?.readyState === WebSocket.OPEN) {
+        this.shareSockets[chatPanelId].send(JSON.stringify({
+          type: "stop_screen_share"
+        }));
+      }
+
+      console.log(`Screen sharing stopped for ${chatPanelId}`);
+    } catch (error) {
+      console.error(`Error stopping screen share: ${error}`);
+    }
+  }
+  cleanupScreenSharing(chatPanelId) {
+    console.log(`Cleaning up screen sharing for ${chatPanelId}`);
+    this.stopScreenShare(chatPanelId);
+    this.cleanupSocket(chatPanelId);
+    this.makingOffer = false;
+    this.ignoreOffer = false;
+  }
+  cleanupSocket(chatPanelId) {
+    if (this.shareSockets[chatPanelId]) {
+      this.shareSockets[chatPanelId].close();
+      delete this.shareSockets[chatPanelId];
+    }
+  }
+  queueMessage(chatPanelId, message) {
+    if (!this.messageQueue[chatPanelId]) {
+      this.messageQueue[chatPanelId] = [];
+    }
+    this.messageQueue[chatPanelId].push(message);
+    console.log(`Message queued for ${chatPanelId}:`, message.type);
+  }
+  processMessageQueue(chatPanelId) {
+    if (!this.messageQueue[chatPanelId] || this.messageQueue[chatPanelId].length === 0) {
+      return;
+    }
+    console.log(`Processing ${this.messageQueue[chatPanelId].length} queued messages for ${chatPanelId}`);
+    while (this.messageQueue[chatPanelId].length > 0) {
+      const message = this.messageQueue[chatPanelId].shift();
+      this.processSignalingMessage(chatPanelId, message);
+    }
+  }
+  updateConnectionStatus(chatPanelId, state) {
+    const element = document.getElementById(`connection-status-${chatPanelId}`);
+    if (!element) {
+      console.warn(`Status element not found for ${chatPanelId}`);
+      return;
+    }
+    element.className = "connection-status";
+    const stateMap = {
+      "connected": "connected",
+      "completed": "connected",
+      "checking": "connecting",
+      "connecting": "connecting",
+      "disconnected": "disconnected",
+      "failed": "disconnected",
+      "closed": "disconnected"
+    };
+
+    const statusClass = stateMap[state] || "disconnected";
+    element.classList.add(statusClass);
+    element.title = `Status: ${state}`;
+  }
+  showError(chatPanelId, message) {
+    console.error(`Error for ${chatPanelId}: ${message}`);
+    alert('error in the connection');
+  }
+  isValidMessageType(type) {
+    const validTypes = ["offer", "answer", "candidate", "stop_screen_share"];
+    return validTypes.includes(type);
+  }
+  isPeerConnectionReady() {
+    return this.peerConnection && this.peerConnection.signalingState !== "closed";
+  }
+}
+const screenSharing = new ScreenSharing();
 
       var onlineSocket = new WebSocket(
         "ws://" + window.location.host + "/ws/online/"
@@ -1510,7 +778,9 @@
               `<div class="connection-status" id="connection-status-${chatPanelId}"></div>`
             );
           }
-          initScreenSharing(chatPanelId, sender, recipient);
+
+
+          screenSharing.initScreenSharing(chatPanelId, sender, recipient);
         });
 
         function updateUnreadCounts(unreadCounts) {

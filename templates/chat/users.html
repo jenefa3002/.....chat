@@ -105,43 +105,53 @@
     </div>
     {% include 'chatbot.html' %}
     <script>
-      // Screen Sharing Module - Complete Implementation
 class ScreenSharing {
   constructor() {
-    this.peerConnection = null;
-    this.localStream = null;
-    this.makingOffer = false;
-    this.ignoreOffer = false;
-    this.polite = false;
+    this.peerConnections = {};
+    this.localStreams = {};
+    this.makingOffer = {};
+    this.ignoreOffer = {};
+    this.polite = {};
     this.shareSockets = {};
     this.messageQueue = {};
     this.rtcConfig = {
       iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-        { urls: "stun:stun2.l.google.com:19302" }
+        {
+          urls: 'turn:relay1.expressturn.com:3478',
+          username: 'ef0OSL1KJJM05XK829',
+          credential: '4HQgeo0mAcWomtgj'
+        },
+        {
+          urls: 'stun:stun.l.google.com:19302'
+        },
+        {
+          urls: 'stun:stun1.l.google.com:19302'
+        }
       ],
-      iceTransportPolicy: "all",
+      iceTransportPolicy: 'all',
+      bundlePolicy: 'max-bundle',
+      rtcpMuxPolicy: 'require',
       iceCandidatePoolSize: 10
     };
   }
+
   async initScreenSharing(chatPanelId, sender, recipient) {
     try {
       console.log(`Initializing screen sharing for ${chatPanelId}`);
       this.cleanupScreenSharing(chatPanelId);
+
+      this.polite[chatPanelId] = true;
+      this.makingOffer[chatPanelId] = false;
+      this.ignoreOffer[chatPanelId] = false;
+
       this.shareSockets[chatPanelId] = new WebSocket(
         window.location.protocol === "https:"
           ? `wss://${window.location.host}/ws/screenshare/${sender}/${recipient}/`
           : `ws://${window.location.host}/ws/screenshare/${sender}/${recipient}/`
       );
 
-      // Setup WebSocket handlers
       this.setupSocketHandlers(chatPanelId);
-
-      // Create UI elements if they don't exist
       this.createVideoElements(chatPanelId);
-
-      // Setup event listeners
       this.setupEventListeners(chatPanelId, sender, recipient);
 
       console.log(`Screen sharing initialized for ${chatPanelId}`);
@@ -151,13 +161,14 @@ class ScreenSharing {
     }
   }
 
-  // Setup WebSocket event handlers
   setupSocketHandlers(chatPanelId) {
     const socket = this.shareSockets[chatPanelId];
 
-    socket.onopen = () => {
+    socket.onopen = async () => {
       console.log(`Screen share WebSocket opened for ${chatPanelId}`);
       this.updateConnectionStatus(chatPanelId, "connecting");
+      await this.createPeerConnection(chatPanelId);
+      this.processMessageQueue(chatPanelId);
     };
 
     socket.onerror = (error) => {
@@ -176,20 +187,17 @@ class ScreenSharing {
         const data = JSON.parse(event.data);
         console.log(`Received ${data.type} for ${chatPanelId}`, data);
 
-        // Validate message type
         if (!this.isValidMessageType(data.type)) {
           console.warn(`Invalid message type: ${data.type}`);
           return;
         }
 
-        // Queue message if PeerConnection isn't ready
-        if (!this.isPeerConnectionReady()) {
+        if (!this.isPeerConnectionReady(chatPanelId)) {
           console.log(`PeerConnection not ready, queuing ${data.type}`);
           this.queueMessage(chatPanelId, data);
           return;
         }
 
-        // Process the message
         await this.processSignalingMessage(chatPanelId, data);
       } catch (error) {
         console.error(`Error handling message for ${chatPanelId}:`, error);
@@ -197,7 +205,6 @@ class ScreenSharing {
     };
   }
 
-  // Create necessary video elements
   createVideoElements(chatPanelId) {
     const container = document.getElementById(`screen-share-container-${chatPanelId}`);
     if (!container) {
@@ -211,6 +218,7 @@ class ScreenSharing {
       localVideo.className = 'localVideo';
       localVideo.autoplay = true;
       localVideo.muted = true;
+      localVideo.playsInline = true;
       container.appendChild(localVideo);
     }
 
@@ -219,6 +227,7 @@ class ScreenSharing {
       remoteVideo.id = `remoteVideo-${chatPanelId}`;
       remoteVideo.className = 'remoteVideo';
       remoteVideo.autoplay = true;
+      remoteVideo.playsInline = true;
       container.appendChild(remoteVideo);
     }
 
@@ -230,53 +239,51 @@ class ScreenSharing {
     }
   }
 
-  // Setup UI event listeners
   setupEventListeners(chatPanelId, sender, recipient) {
-    // Share button click handler
     $(`#shareBtn-${chatPanelId}`).off('click').on('click', async () => {
-      if (this.localStream) {
+      if (this.localStreams[chatPanelId]) {
         await this.stopScreenShare(chatPanelId);
       } else {
         await this.startScreenShare(chatPanelId, sender, recipient);
       }
     });
 
-    // Panel close handler
     $(document).on(`click`, `.close-chat-content[data-id="${chatPanelId}"]`, () => {
       this.cleanupScreenSharing(chatPanelId);
     });
   }
 
-  // Start screen sharing
   async startScreenShare(chatPanelId, sender, recipient) {
     try {
       console.log(`Starting screen share for ${chatPanelId}`);
-
-      // Reset state
-      this.polite = true;
-      this.makingOffer = false;
-      this.ignoreOffer = false;
       $(`#screen-share-container-${chatPanelId}`).show();
       this.updateConnectionStatus(chatPanelId, "connecting");
+
+      //peer connection
       await this.createPeerConnection(chatPanelId);
-      this.localStream = await navigator.mediaDevices.getDisplayMedia({
+      this.localStreams[chatPanelId] = await navigator.mediaDevices.getDisplayMedia({
         video: {
           displaySurface: "monitor",
           width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          height: { ideal: 1080 },
+          frameRate: { ideal: 30 }
         },
         audio: false
       });
       const localVideo = document.getElementById(`localVideo-${chatPanelId}`);
-      localVideo.srcObject = this.localStream;
-      localVideo.classList.add("active");
-      this.localStream.getTracks().forEach(track => {
-        this.peerConnection.addTrack(track, this.localStream);
+      if (localVideo) {
+        localVideo.srcObject = this.localStreams[chatPanelId];
+        localVideo.classList.add("active");
+      }
+      this.localStreams[chatPanelId].getTracks().forEach(track => {
+        this.peerConnections[chatPanelId].addTrack(track, this.localStreams[chatPanelId]);
+        console.log(`Added ${track.kind} track to peer connection`);
       });
-      this.localStream.getVideoTracks()[0].onended = () => {
+      this.localStreams[chatPanelId].getVideoTracks()[0].onended = () => {
         console.log("User stopped screen sharing");
         this.stopScreenShare(chatPanelId);
       };
+
       console.log(`Screen sharing started for ${chatPanelId}`);
     } catch (error) {
       console.error(`Error starting screen share: ${error}`);
@@ -286,16 +293,16 @@ class ScreenSharing {
       }
     }
   }
+
   async createPeerConnection(chatPanelId) {
     try {
       console.log(`Creating PeerConnection for ${chatPanelId}`);
-      if (this.peerConnection) {
-        this.peerConnection.close();
+      if (this.peerConnections[chatPanelId]) {
+        this.peerConnections[chatPanelId].close();
       }
-      this.peerConnection = new RTCPeerConnection(this.rtcConfig);
+      this.peerConnections[chatPanelId] = new RTCPeerConnection(this.rtcConfig);
       this.updateConnectionStatus(chatPanelId, "connecting");
       this.setupPeerConnectionHandlers(chatPanelId);
-
       console.log(`PeerConnection created for ${chatPanelId}`);
       return true;
     } catch (error) {
@@ -304,70 +311,129 @@ class ScreenSharing {
       return false;
     }
   }
+
   setupPeerConnectionHandlers(chatPanelId) {
-    this.peerConnection.onicecandidate = ({ candidate }) => {
+    const pc = this.peerConnections[chatPanelId];
+    if (!pc) return;
+
+    pc.onicecandidate = ({ candidate }) => {
+      console.log(`ICE candidate for ${chatPanelId}:`, candidate);
       if (candidate && this.shareSockets[chatPanelId]?.readyState === WebSocket.OPEN) {
-        console.log(`Sending ICE candidate for ${chatPanelId}`);
         this.shareSockets[chatPanelId].send(JSON.stringify({
           type: "candidate",
           candidate: candidate
         }));
       }
     };
-    this.peerConnection.onnegotiationneeded = async () => {
+
+    pc.onnegotiationneeded = async () => {
       try {
         console.log(`Negotiation needed for ${chatPanelId}`);
-        this.makingOffer = true;
-        await this.peerConnection.setLocalDescription();
+        this.makingOffer[chatPanelId] = true;
+        await pc.setLocalDescription();
+        console.log(`Local description set:`, pc.localDescription);
+
         if (this.shareSockets[chatPanelId]?.readyState === WebSocket.OPEN) {
-          console.log(`Sending offer for ${chatPanelId}`);
           this.shareSockets[chatPanelId].send(JSON.stringify({
             type: "offer",
-            offer: this.peerConnection.localDescription
+            offer: pc.localDescription
           }));
+          console.log(`Offer sent for ${chatPanelId}`);
         }
       } catch (err) {
         console.error(`Negotiation error for ${chatPanelId}:`, err);
       } finally {
-        this.makingOffer = false;
+        this.makingOffer[chatPanelId] = false;
       }
     };
-    this.peerConnection.oniceconnectionstatechange = () => {
-      const state = this.peerConnection.iceConnectionState;
+
+    pc.oniceconnectionstatechange = () => {
+      const state = pc.iceConnectionState;
       console.log(`ICE connection state changed to ${state} for ${chatPanelId}`);
       this.updateConnectionStatus(chatPanelId, state);
+
       if (state === "failed") {
         console.log(`Restarting ICE for ${chatPanelId}`);
-        this.peerConnection.restartIce();
+        pc.restartIce();
       }
     };
-    this.peerConnection.ontrack = (event) => {
+
+    pc.ontrack = (event) => {
+      console.log(`Track event received for ${chatPanelId}:`, event);
       if (event.streams && event.streams.length > 0) {
-        console.log(`Received remote track for ${chatPanelId}`);
+        console.log(`Received remote stream with ${event.streams[0].getTracks().length} tracks`);
+
         const remoteVideo = document.getElementById(`remoteVideo-${chatPanelId}`);
+        if (!remoteVideo) {
+          console.error('Remote video element not found');
+          return;
+        }
+        if (remoteVideo.srcObject) {
+          remoteVideo.srcObject.getTracks().forEach(track => track.stop());
+        }
         remoteVideo.srcObject = event.streams[0];
         remoteVideo.classList.add("active");
-        this.updateConnectionStatus(chatPanelId, "connected");
+        this.handleVideoPlayback(remoteVideo, chatPanelId);
       }
     };
-    this.peerConnection.onicegatheringstatechange = () => {
-      console.log(`ICE gathering state: ${this.peerConnection.iceGatheringState}`);
+
+    pc.onicegatheringstatechange = () => {
+      console.log(`ICE gathering state for ${chatPanelId}: ${pc.iceGatheringState}`);
     };
-    this.peerConnection.onsignalingstatechange = () => {
-      console.log(`Signaling state: ${this.peerConnection.signalingState}`);
+
+    pc.onsignalingstatechange = () => {
+      console.log(`Signaling state for ${chatPanelId}: ${pc.signalingState}`);
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log(`Connection state for ${chatPanelId}: ${pc.connectionState}`);
     };
   }
+
+  handleVideoPlayback(videoElement, chatPanelId) {
+    const playPromise = videoElement.play();
+
+    if (playPromise !== undefined) {
+      playPromise.catch(error => {
+        console.log('Autoplay prevented, showing play button');
+        this.showPlayButton(chatPanelId, videoElement);
+      });
+    }
+  }
+
+  showPlayButton(chatPanelId, videoElement) {
+    const container = document.getElementById(`screen-share-container-${chatPanelId}`);
+    if (!container) return;
+
+    // Remove existing button if any
+    const existingBtn = container.querySelector('.video-play-button');
+    if (existingBtn) existingBtn.remove();
+
+    // Create new play button
+    const playBtn = document.createElement('button');
+    playBtn.className = 'video-play-button';
+    playBtn.textContent = 'Play Video';
+    playBtn.onclick = () => {
+      videoElement.play()
+        .then(() => playBtn.remove())
+        .catch(e => console.error('Playback failed:', e));
+    };
+
+    container.appendChild(playBtn);
+  }
+
   async processSignalingMessage(chatPanelId, data) {
     try {
+      console.log(`Processing ${data.type} for ${chatPanelId}`);
       switch (data.type) {
         case "offer":
           await this.handleOffer(chatPanelId, data.offer);
           break;
         case "answer":
-          await this.handleAnswer(data.answer);
+          await this.handleAnswer(chatPanelId, data.answer);
           break;
         case "candidate":
-          await this.handleCandidate(data.candidate);
+          await this.handleCandidate(chatPanelId, data.candidate);
           break;
         case "stop_screen_share":
           await this.stopScreenShare(chatPanelId);
@@ -379,78 +445,101 @@ class ScreenSharing {
       console.error(`Error processing ${data.type}:`, error);
     }
   }
+
   async handleOffer(chatPanelId, offer) {
     try {
-      console.log(`Processing offer for ${chatPanelId}`);
+      console.log(`Processing offer for ${chatPanelId}`, offer);
+      const pc = this.peerConnections[chatPanelId];
+      if (!pc) {
+        console.warn('No peer connection for offer');
+        return;
+      }
 
-      const offerCollision = this.makingOffer ||
-                           this.peerConnection.signalingState !== "stable";
+      const offerCollision = this.makingOffer[chatPanelId] ||
+                           (pc.signalingState !== "stable" && pc.signalingState !== "have-local-offer");
 
-      this.ignoreOffer = !this.polite && offerCollision;
-      if (this.ignoreOffer) {
+      this.ignoreOffer[chatPanelId] = !this.polite[chatPanelId] && offerCollision;
+      if (this.ignoreOffer[chatPanelId]) {
         console.log(`Ignoring offer for ${chatPanelId} due to collision`);
         return;
       }
-      await this.peerConnection.setRemoteDescription(offer);
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      console.log('Remote description set successfully');
       if (offer.type === "offer") {
-        await this.peerConnection.setLocalDescription();
+        console.log('Creating answer...');
+        await pc.setLocalDescription();
+        console.log('Local description set:', pc.localDescription);
+
         if (this.shareSockets[chatPanelId]?.readyState === WebSocket.OPEN) {
-          console.log(`Sending answer for ${chatPanelId}`);
           this.shareSockets[chatPanelId].send(JSON.stringify({
             type: "answer",
-            answer: this.peerConnection.localDescription
+            answer: pc.localDescription
           }));
+          console.log('Answer sent successfully');
         }
       }
+
       this.processMessageQueue(chatPanelId);
     } catch (error) {
       console.error(`Error handling offer: ${error}`);
       throw error;
     }
   }
-  async handleAnswer(answer) {
+
+  async handleAnswer(chatPanelId, answer) {
     try {
-      console.log("Processing answer");
-      if (!this.peerConnection ||
-          this.peerConnection.signalingState === "closed" ||
-          this.peerConnection.signalingState !== "have-local-offer") {
-        console.warn("PeerConnection not ready for answer. Current state: ", this.peerConnection.signalingState);
+      console.log("Processing answer", answer);
+      const pc = this.peerConnections[chatPanelId];
+
+      if (!pc || pc.signalingState === "closed") {
+        console.warn("PeerConnection not ready for answer");
         return;
       }
-      console.log("Current signaling state", this.peerConnection.signalingState);
-      await this.peerConnection.setRemoteDescription(answer);
-      console.log("Answer processed successfully");
+
+      if (pc.signalingState === "have-local-offer" || pc.signalingState === "stable") {
+        if (!pc.remoteDescription) {
+          await pc.setRemoteDescription(new RTCSessionDescription(answer));
+          console.log("Answer processed successfully");
+        } else {
+          console.log("Ignoring duplicate answer");
+        }
+      } else {
+        console.warn(`Unexpected signaling state for answer: ${pc.signalingState}`);
+        this.queueMessage(chatPanelId, { type: "answer", answer });
+      }
     } catch (error) {
       console.error("Error handling answer:", error);
       throw error;
     }
   }
-  async handleCandidate(candidate) {
-    try {
-      console.log("Processing ICE candidate");
 
-      if (!this.peerConnection ||
-          this.peerConnection.signalingState === "closed") {
+  async handleCandidate(chatPanelId, candidate) {
+    try {
+      console.log("Processing ICE candidate", candidate);
+      const pc = this.peerConnections[chatPanelId];
+
+      if (!pc || pc.signalingState === "closed") {
         console.warn("PeerConnection not ready for candidate");
         return;
       }
 
       if (candidate) {
-        await this.peerConnection.addIceCandidate(candidate);
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
         console.log("ICE candidate added successfully");
       }
     } catch (err) {
-      if (!this.ignoreOffer) {
+      if (!this.ignoreOffer[chatPanelId]) {
         console.error("Failed to add ICE candidate:", err);
       }
     }
   }
+
   async stopScreenShare(chatPanelId) {
     try {
       console.log(`Stopping screen share for ${chatPanelId}`);
-      if (this.localStream) {
-        this.localStream.getTracks().forEach(track => track.stop());
-        this.localStream = null;
+      if (this.localStreams[chatPanelId]) {
+        this.localStreams[chatPanelId].getTracks().forEach(track => track.stop());
+        delete this.localStreams[chatPanelId];
       }
       const localVideo = document.getElementById(`localVideo-${chatPanelId}`);
       const remoteVideo = document.getElementById(`remoteVideo-${chatPanelId}`);
@@ -462,9 +551,9 @@ class ScreenSharing {
         remoteVideo.srcObject = null;
         remoteVideo.classList.remove("active");
       }
-      if (this.peerConnection) {
-        this.peerConnection.close();
-        this.peerConnection = null;
+      if (this.peerConnections[chatPanelId]) {
+        this.peerConnections[chatPanelId].close();
+        delete this.peerConnections[chatPanelId];
       }
       $(`#screen-share-container-${chatPanelId}`).hide();
       this.updateConnectionStatus(chatPanelId, "disconnected");
@@ -479,19 +568,40 @@ class ScreenSharing {
       console.error(`Error stopping screen share: ${error}`);
     }
   }
+
   cleanupScreenSharing(chatPanelId) {
     console.log(`Cleaning up screen sharing for ${chatPanelId}`);
     this.stopScreenShare(chatPanelId);
     this.cleanupSocket(chatPanelId);
-    this.makingOffer = false;
-    this.ignoreOffer = false;
+    delete this.makingOffer[chatPanelId];
+    delete this.ignoreOffer[chatPanelId];
+    delete this.polite[chatPanelId];
   }
+
   cleanupSocket(chatPanelId) {
     if (this.shareSockets[chatPanelId]) {
       this.shareSockets[chatPanelId].close();
       delete this.shareSockets[chatPanelId];
     }
   }
+
+  async processMessageQueue(chatPanelId) {
+    if (!this.messageQueue[chatPanelId] || this.messageQueue[chatPanelId].length === 0) {
+      return;
+    }
+
+    console.log(`Processing ${this.messageQueue[chatPanelId].length} queued messages for ${chatPanelId}`);
+
+    while (this.messageQueue[chatPanelId].length > 0 && this.isPeerConnectionReady(chatPanelId)) {
+      const message = this.messageQueue[chatPanelId].shift();
+      try {
+        await this.processSignalingMessage(chatPanelId, message);
+      } catch (error) {
+        console.error(`Error processing queued ${message.type}:`, error);
+      }
+    }
+  }
+
   queueMessage(chatPanelId, message) {
     if (!this.messageQueue[chatPanelId]) {
       this.messageQueue[chatPanelId] = [];
@@ -499,22 +609,14 @@ class ScreenSharing {
     this.messageQueue[chatPanelId].push(message);
     console.log(`Message queued for ${chatPanelId}:`, message.type);
   }
-  processMessageQueue(chatPanelId) {
-    if (!this.messageQueue[chatPanelId] || this.messageQueue[chatPanelId].length === 0) {
-      return;
-    }
-    console.log(`Processing ${this.messageQueue[chatPanelId].length} queued messages for ${chatPanelId}`);
-    while (this.messageQueue[chatPanelId].length > 0) {
-      const message = this.messageQueue[chatPanelId].shift();
-      this.processSignalingMessage(chatPanelId, message);
-    }
-  }
+
   updateConnectionStatus(chatPanelId, state) {
     const element = document.getElementById(`connection-status-${chatPanelId}`);
     if (!element) {
       console.warn(`Status element not found for ${chatPanelId}`);
       return;
     }
+
     element.className = "connection-status";
     const stateMap = {
       "connected": "connected",
@@ -530,18 +632,23 @@ class ScreenSharing {
     element.classList.add(statusClass);
     element.title = `Status: ${state}`;
   }
+
   showError(chatPanelId, message) {
     console.error(`Error for ${chatPanelId}: ${message}`);
-    alert('error in the connection');
+    alert(`Screen Sharing Error: ${message}`);
   }
+
   isValidMessageType(type) {
     const validTypes = ["offer", "answer", "candidate", "stop_screen_share"];
     return validTypes.includes(type);
   }
-  isPeerConnectionReady() {
-    return this.peerConnection && this.peerConnection.signalingState !== "closed";
+
+  isPeerConnectionReady(chatPanelId) {
+    return this.peerConnections[chatPanelId] &&
+           this.peerConnections[chatPanelId].signalingState !== "closed";
   }
 }
+
 const screenSharing = new ScreenSharing();
 
       var onlineSocket = new WebSocket(
@@ -732,7 +839,7 @@ const screenSharing = new ScreenSharing();
               chatMessages.scrollTop(chatMessages.prop("scrollHeight"));
             },
             error: function (error) {
-              console.error("Error loading messages:", error);
+              console.error("Error loading messages:", error);   
             },
           });
         }
@@ -778,8 +885,6 @@ const screenSharing = new ScreenSharing();
               `<div class="connection-status" id="connection-status-${chatPanelId}"></div>`
             );
           }
-
-
           screenSharing.initScreenSharing(chatPanelId, sender, recipient);
         });
 

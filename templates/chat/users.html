@@ -31,6 +31,22 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
     />
+    <style>
+.video-play-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+    </style>
   </head>
 
   <body>
@@ -120,12 +136,6 @@ class ScreenSharing {
           urls: 'turn:relay1.expressturn.com:3478',
           username: 'ef0OSL1KJJM05XK829',
           credential: '4HQgeo0mAcWomtgj'
-        },
-        {
-          urls: 'stun:stun.l.google.com:19302'
-        },
-        {
-          urls: 'stun:stun1.l.google.com:19302'
         }
       ],
       iceTransportPolicy: 'all',
@@ -149,7 +159,8 @@ class ScreenSharing {
           ? `wss://${window.location.host}/ws/screenshare/${sender}/${recipient}/`
           : `ws://${window.location.host}/ws/screenshare/${sender}/${recipient}/`
       );
-
+      this.shareSockets[chatPanelId].sender = sender;
+      this.shareSockets[chatPanelId].recipient = recipient;
       this.setupSocketHandlers(chatPanelId);
       this.createVideoElements(chatPanelId);
       this.setupEventListeners(chatPanelId, sender, recipient);
@@ -227,6 +238,7 @@ class ScreenSharing {
       remoteVideo.id = `remoteVideo-${chatPanelId}`;
       remoteVideo.className = 'remoteVideo';
       remoteVideo.autoplay = true;
+      remoteVideo.muted = true;
       remoteVideo.playsInline = true;
       container.appendChild(remoteVideo);
     }
@@ -258,15 +270,13 @@ class ScreenSharing {
       console.log(`Starting screen share for ${chatPanelId}`);
       $(`#screen-share-container-${chatPanelId}`).show();
       this.updateConnectionStatus(chatPanelId, "connecting");
-
-      //peer connection
+      if (!await this.createPeerConnection(chatPanelId)) {
+        throw new Error("Failed to create peer connection");
+      }
       await this.createPeerConnection(chatPanelId);
       this.localStreams[chatPanelId] = await navigator.mediaDevices.getDisplayMedia({
         video: {
           displaySurface: "monitor",
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          frameRate: { ideal: 30 }
         },
         audio: false
       });
@@ -274,10 +284,15 @@ class ScreenSharing {
       if (localVideo) {
         localVideo.srcObject = this.localStreams[chatPanelId];
         localVideo.classList.add("active");
+        localVideo.play().catch(e => console.log("Local video play error:", e));
       }
       this.localStreams[chatPanelId].getTracks().forEach(track => {
         this.peerConnections[chatPanelId].addTrack(track, this.localStreams[chatPanelId]);
         console.log(`Added ${track.kind} track to peer connection`);
+        track.onended = () => {
+          console.log("Screen sharing track ended");
+          this.stopScreenShare(chatPanelId);
+        };
       });
       this.localStreams[chatPanelId].getVideoTracks()[0].onended = () => {
         console.log("User stopped screen sharing");
@@ -315,6 +330,7 @@ class ScreenSharing {
   setupPeerConnectionHandlers(chatPanelId) {
     const pc = this.peerConnections[chatPanelId];
     if (!pc) return;
+    const [_, sender, recipient] = chatPanelId.match(/chat-panel-(.+?)-(\d+)/) || [];
 
     pc.onicecandidate = ({ candidate }) => {
       console.log(`ICE candidate for ${chatPanelId}:`, candidate);
@@ -357,26 +373,40 @@ class ScreenSharing {
         pc.restartIce();
       }
     };
+pc.ontrack = (event) => {
+  console.log('Track event received:', event);
+  const remoteVideo = document.getElementById(`remoteVideo-${chatPanelId}`);
+  if (!remoteVideo) {
+    console.error('Remote video element not found');
+    return;
+  }
+  if (remoteVideo.srcObject) {
+    remoteVideo.srcObject.getTracks().forEach(track => track.stop());
+  }
+  remoteVideo.playsInline = true;
+  remoteVideo.muted = true;
 
-    pc.ontrack = (event) => {
-      console.log(`Track event received for ${chatPanelId}:`, event);
-      if (event.streams && event.streams.length > 0) {
-        console.log(`Received remote stream with ${event.streams[0].getTracks().length} tracks`);
+  if (remoteVideo.srcObject) {
+    remoteVideo.srcObject.getTracks().forEach(track => track.stop());
+  }
+  if (event.streams && event.streams.length > 0) {
+    console.log('Attaching remote stream with tracks:',
+      event.streams[0].getTracks().map(t => t.kind));
 
-        const remoteVideo = document.getElementById(`remoteVideo-${chatPanelId}`);
-        if (!remoteVideo) {
-          console.error('Remote video element not found');
-          return;
-        }
-        if (remoteVideo.srcObject) {
-          remoteVideo.srcObject.getTracks().forEach(track => track.stop());
-        }
-        remoteVideo.srcObject = event.streams[0];
-        remoteVideo.classList.add("active");
-        this.handleVideoPlayback(remoteVideo, chatPanelId);
-      }
-    };
-
+       remoteVideo.srcObject = event.streams[0];
+        remoteVideo.playsInline = true;
+        remoteVideo.muted = true;
+const playPromise = remoteVideo.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(error => {
+        console.log('Autoplay prevented, showing play button');
+        this.showPlayButton(chatPanelId, remoteVideo);
+      });
+    }
+    $(`#screen-share-container-${chatPanelId}`).show();
+    this.ensureVideoPlayback(remoteVideo, chatPanelId);
+  }
+};
     pc.onicegatheringstatechange = () => {
       console.log(`ICE gathering state for ${chatPanelId}: ${pc.iceGatheringState}`);
     };
@@ -385,42 +415,90 @@ class ScreenSharing {
       console.log(`Signaling state for ${chatPanelId}: ${pc.signalingState}`);
     };
 
-    pc.onconnectionstatechange = () => {
-      console.log(`Connection state for ${chatPanelId}: ${pc.connectionState}`);
-    };
+pc.onconnectionstatechange = () => {
+  const state = pc.connectionState;
+  console.log(`Connection state changed to ${state} for ${chatPanelId}`);
+  this.updateConnectionStatus(chatPanelId, state);
+  if (state === 'failed') {
+    console.log("Attempting to recover failed connection");
+    setTimeout(() => {
+      if (pc.signalingState !== 'closed') {
+        pc.restartIce();
+        this.makingOffer[chatPanelId] = true;
+        pc.createOffer()
+          .then(offer => pc.setLocalDescription(offer))
+          .then(() => {
+            this.shareSockets[chatPanelId].send(JSON.stringify({
+              type: "offer",
+              offer: pc.localDescription
+            }));
+          })
+          .catch(console.error);
+      }
+    }, 1000);
+  }
+};
+
   }
 
-  handleVideoPlayback(videoElement, chatPanelId) {
-    const playPromise = videoElement.play();
+ensureVideoPlayback(videoElement, chatPanelId, attempt = 0) {
+  if (attempt > 3) {
+    console.error('Max playback attempts reached');
+    this.showPlayButton(chatPanelId, videoElement);
+    return;
+  }
 
-    if (playPromise !== undefined) {
-      playPromise.catch(error => {
-        console.log('Autoplay prevented, showing play button');
+  videoElement.play()
+    .then(() => {
+      console.log('Video playback started successfully');
+      videoElement.classList.add("active");
+    })
+    .catch(error => {
+      console.warn(`Playback attempt ${attempt + 1} failed:`, error);
+      if (error.name === 'NotAllowedError') {
         this.showPlayButton(chatPanelId, videoElement);
+      } else {
+        setTimeout(() => {
+          this.ensureVideoPlayback(videoElement, chatPanelId, attempt + 1);
+        }, 500);
+      }
+    });
+}
+  handleVideoPlayback(videoElement, chatPanelId) {
+  videoElement.muted = true;
+  const playPromise = videoElement.play();
+  if (playPromise !== undefined) {
+    playPromise.catch(error => {
+      console.log('Autoplay prevented, showing play button');
+      this.showPlayButton(chatPanelId, videoElement);
+    }).then(() => {
+      console.log('Video playback started successfully');
+    });
+  }
+}
+
+ showPlayButton(chatPanelId, videoElement) {
+  const container = document.getElementById(`screen-share-container-${chatPanelId}`);
+  if (!container) return;
+  const existingBtn = container.querySelector('.video-play-button');
+  if (existingBtn) existingBtn.remove();
+  const playBtn = document.createElement('button');
+  playBtn.className = 'video-play-button btn btn-primary';
+  playBtn.textContent = 'Play Video';
+  playBtn.onclick = () => {
+    videoElement.play()
+      .then(() => {
+        playBtn.remove();
+        console.log('Playback started after user interaction');
+      })
+      .catch(e => {
+        console.error('Playback failed:', e);
+        this.showError(chatPanelId, "Could not start video playback");
       });
-    }
-  }
+  };
 
-  showPlayButton(chatPanelId, videoElement) {
-    const container = document.getElementById(`screen-share-container-${chatPanelId}`);
-    if (!container) return;
-
-    // Remove existing button if any
-    const existingBtn = container.querySelector('.video-play-button');
-    if (existingBtn) existingBtn.remove();
-
-    // Create new play button
-    const playBtn = document.createElement('button');
-    playBtn.className = 'video-play-button';
-    playBtn.textContent = 'Play Video';
-    playBtn.onclick = () => {
-      videoElement.play()
-        .then(() => playBtn.remove())
-        .catch(e => console.error('Playback failed:', e));
-    };
-
-    container.appendChild(playBtn);
-  }
+  container.appendChild(playBtn);
+}
 
   async processSignalingMessage(chatPanelId, data) {
     try {
@@ -701,34 +779,35 @@ const screenSharing = new ScreenSharing();
           console.log("Chat Panel", chatPanelId);
           loadOldMessages(sender, recipient, chatMessages, chatPanelId);
 
-          let chatPanel = $(`
-                <div class="chat-content-panel" id="${chatPanelId}">
+let chatPanel = $(`
+  <div class="chat-content-panel" id="${chatPanelId}">
     <div class="chat-header" style="font-family: serif;">
-        ${username}
-        <button class="close-chat-content" data-id="${chatPanelId}">&times;</button>
+      ${username}
+      <button class="close-chat-content" data-id="${chatPanelId}">&times;</button>
     </div>
     <div class="chat-container">
-        <div class="container">
-            <div class="chat-container2">
-                <div class="messages" id="chat-messages-${chatPanelId}" class="chat-messages"></div>
-                <div class="screen-share-container" id="screen-share-container-${chatPanelId}" style="display: none;">
-                    <video id="localVideo-${chatPanelId}" class="localVideo" autoplay muted></video>
-                    <video id="remoteVideo-${chatPanelId}" class="remoteVideo" autoplay></video>
-                </div>
-            </div>
-            <div class="chat-input" id="chat-input">
-                <input autocomplete="off" type="text" class="message-input" id="message-input-${chatPanelId}" placeholder="Type your message...">
-                <button id="send-btn-${chatPanelId}" class="send-btn">
-                    <img src="https://img.icons8.com/?size=100&id=2837&format=png&color=000000" alt="send">
-                </button>
-                <button id="shareBtn-${chatPanelId}" class="shareBtn">
-                    <img src="https://img.icons8.com/?size=100&id=IId2iYTrumrQ&format=png&color=000000" alt="share">
-                </button>
-            </div>
+      <div class="container">
+        <div class="chat-container2">
+          <div class="messages" id="chat-messages-${chatPanelId}" class="chat-messages"></div>
+          <div class="screen-share-container" id="screen-share-container-${chatPanelId}" style="display: none;">
+            <video id="remoteVideo-${chatPanelId}" class="remoteVideo" muted playsinline></video>
+            <video id="localVideo-${chatPanelId}" class="localVideo" muted playsinline></video>
+            <div class="connection-status" id="connection-status-${chatPanelId}"></div>
+          </div>
         </div>
+        <div class="chat-input" id="chat-input">
+          <input autocomplete="off" type="text" class="message-input" id="message-input-${chatPanelId}" placeholder="Type your message...">
+          <button id="send-btn-${chatPanelId}" class="send-btn">
+            <img src="https://img.icons8.com/?size=100&id=2837&format=png&color=000000" alt="send">
+          </button>
+          <button id="shareBtn-${chatPanelId}" class="shareBtn">
+            <img src="https://img.icons8.com/?size=100&id=IId2iYTrumrQ&format=png&color=000000" alt="share">
+          </button>
+        </div>
+      </div>
     </div>
-</div>
-            `);
+  </div>
+`);
           $("body").append(chatPanel);
           chatPanels.push(chatPanelId);
           $(`#${chatPanelId}`).addClass("active");

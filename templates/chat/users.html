@@ -28,7 +28,45 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
     <style>
+      .maximize-chat {
+        background: none;
+        border: none;
+        color: white;
+        font-family: Georgia, serif;
+        font-size: 20px;
+        cursor: pointer;
+        transition: color 0.3s ease;
+        margin-right: 10px;
+      }
+
+      .maximize-chat:hover {
+        color: #ffcc00;
+      }
+
+      .chat-content-panel.maximized {
+        width: 70vw;
+        height: 90vh;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1100;
+      }
+
+      .chat-content-panel.maximized .chat-container2 {
+        height: calc(100% - 100px);
+        max-height: none;
+      }
+
+      .chat-content-panel.maximized .screen-share-container {
+        height: 50%;
+      }
+
       @media (max-width: 768px) {
+
+        .chat-content-panel.maximized {
+            width: 95vw;
+            height: 85vh;
+        }
+
         .header {
           padding: 8px 10px;
           font-size: 16px;
@@ -39,7 +77,6 @@
           height: 40px;
         }
 
-        /* Chat panel sizing */
         .chat-panel {
           width: 100%;
           height: 70vh;
@@ -61,7 +98,6 @@
           max-height: 70vh;
           margin: 0;
         }
-        /* Chat button positioning */
         .chat-button {
           width: 60px;
           height: 60px;
@@ -69,7 +105,6 @@
           right: 20px;
         }
 
-        /* Message input adjustments */
         .chat-input {
           padding: 8px;
         }
@@ -78,20 +113,17 @@
           font-size: 14px;
         }
 
-        /* Message bubbles */
         .message-bubble {
           max-width: 85%;
           padding: 8px 12px;
           font-size: 14px;
         }
 
-        /* Avatar sizing */
         .avatar {
           width: 32px;
           height: 32px;
         }
 
-        /* User list items */
         .chat-list li {
           padding: 10px;
         }
@@ -135,7 +167,7 @@
           cursor: pointer;
         }
 
-        /* Navigation menu */
+
         .nav-menu {
           position: fixed;
           top: 60px;
@@ -161,7 +193,6 @@
         }
       }
 
-      /* Very small devices (phones, 480px and down) */
       @media (max-width: 480px) {
         .chat-panel,
         .chat-content-panel {
@@ -429,8 +460,8 @@
         border-radius: 50%;
       }
       .status-badge {
-        width: 10px;
-        height: 10px;
+        width: 5px;
+        height: 5px;
         border-radius: 50%;
         margin-left: 10px;
       }
@@ -479,7 +510,7 @@
         display: none;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         transition: transform 0.3s ease, background-color 0.3s ease;
-        animation: pulse 1.5s infinite ease-in-out; /* Smoother animation */
+        animation: pulse 3s infinite ease-in-out;
         overflow: hidden;
       }
       .messages {
@@ -570,15 +601,15 @@
       .username {
         font-size: 0.6rem;
         font-family: Georgia, serif;
-        color: black;
+        color: white;
         font-style: Italic;
       }
       .status {
-        font-size: 0.6rem;
+        font-size: 0.4rem;
         font-style: Italic;
       }
       .unread-badge {
-        font-size: 0.6rem;
+        font-size: 0.4rem;
         font-style: Italic;
         font-color: #ee4b2b;
       }
@@ -1126,7 +1157,7 @@
             `remoteVideo-${chatPanelId}`
           );
           if (remoteVideo) {
-            remoteVideo.muted = true; // Required for autoplay
+            remoteVideo.muted = true;
             remoteVideo.playsInline = true;
 
             const playPromise = remoteVideo.play();
@@ -1432,6 +1463,31 @@
                 break;
             }
           };
+        }
+        handleConnectionSuccess(chatPanelId) {
+        console.log(`Connection established for ${chatPanelId}`);
+        const statusElement = document.getElementById(`connection-status-${chatPanelId}`);
+        if (statusElement) {
+            statusElement.className = "connection-status connected";
+          }
+        this.monitorConnectionQuality(chatPanelId);
+        }
+
+        monitorConnectionQuality(chatPanelId) {
+          const pc = this.peerConnections[chatPanelId];
+          if (!pc) return;
+            setInterval(() => {
+              pc.getStats().then(stats => {
+                stats.forEach(report => {
+                    if (report.type === 'candidate-pair' && report.nominated) {
+                        console.log(`Connection quality for ${chatPanelId}:`, {
+                            rtt: report.currentRoundTripTime,
+                            availableOutgoingBitrate: report.availableOutgoingBitrate
+                        });
+                    }
+                });
+            });
+          }, 10000);
         }
         handleConnectionFailure(chatPanelId) {
           this.cleanupScreenSharing(chatPanelId);
@@ -1837,10 +1893,13 @@
           loadOldMessages(sender, recipient, chatMessages, chatPanelId);
 
           let chatPanel = $(`
-                <div class="chat-content-panel" id="${chatPanelId}">
+<div class="chat-content-panel" id="${chatPanelId}">
     <div class="chat-header" style="font-family: serif;">
         ${username}
-        <button class="close-chat-content" data-id="${chatPanelId}">&times;</button>
+        <div>
+            <button class="maximize-chat" data-id="${chatPanelId}">□</button>
+            <button class="close-chat-content" data-id="${chatPanelId}">&times;</button>
+        </div>
     </div>
     <div class="chat-container">
         <div class="container">
@@ -1863,7 +1922,7 @@
         </div>
     </div>
 </div>
-            `);
+`);
           $("body").append(chatPanel);
           chatPanels.push(chatPanelId);
           $(`#${chatPanelId}`).addClass("active");
@@ -1925,6 +1984,27 @@
             console.log("Received message:", data);
             renderMessage(data, chatPanelId);
           };
+    $(document).on('click', '.maximize-chat', function() {
+    const panelId = $(this).data('id');
+    const panel = $(`#${panelId}`);
+    panel.toggleClass('maximized');
+    const button = $(this);
+    if (panel.hasClass('maximized')) {
+        button.text('❐');
+    } else {
+        button.text('□');
+    }
+    if (panel.hasClass('maximized')) {
+        panel.css('z-index', '1100');
+    } else {
+        panel.css('z-index', '1030');
+    }
+    if (panel.hasClass('maximized')) {
+        $(`#screen-share-container-${panelId}`).css('height', '50%');
+    } else {
+        $(`#screen-share-container-${panelId}`).css('height', 'auto');
+    }
+});
 
           function renderMessage(data, chatPanelId) {
             const chatMessages = $(`#chat-messages-${chatPanelId}`);
@@ -2022,7 +2102,6 @@
           }
           screenSharing.initScreenSharing(chatPanelId, sender, recipient);
         });
-
         function updateUnreadCounts(unreadCounts) {
           let userItems = document.querySelectorAll(".chat-list li");
           userItems.forEach((item) => {
